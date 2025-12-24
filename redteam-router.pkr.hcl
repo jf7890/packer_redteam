@@ -79,7 +79,7 @@ source "proxmox-iso" "redteam_router" {
     "echo nameserver ${var.dns_server} > /etc/resolv.conf<enter>",
     "wget -O /tmp/answers http://{{ .HTTPIP }}:{{ .HTTPPort }}/${var.answerfile_name}<enter>",
     "ERASE_DISKS=/dev/sda setup-alpine -e -f /tmp/answers<enter>",
-    "<wait5m>",
+    "<wait3m>",
     "reboot<enter>"
   ]
 
