@@ -1,0 +1,40 @@
+KEYMAPOPTS="us us"
+HOSTNAMEOPTS="-n red-router"
+DEVDOPTS=mdev
+
+INTERFACESOPTS="auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet static
+    address 10.10.100.22
+    netmask 255.255.255.0
+    gateway 10.10.100.1
+    hostname red-router
+
+auto eth1
+iface eth1 inet static
+    address 10.10.101.2
+    netmask 255.255.255.252
+
+auto eth2
+iface eth2 inet static
+    address 10.10.173.1
+    netmask 255.255.255.0
+"
+
+DNSOPTS="1.1.1.1"
+TIMEZONEOPTS="-z UTC"
+PROXYOPTS=none
+APKREPOSOPTS="-1 -c"
+
+USEROPTS="-a -u red"
+USERSSHKEY="ssh-ed25519 AAAA... yourkey"
+
+SSHDOPTS=openssh
+ROOTSSHKEY="ssh-ed25519 AAAA... yourkey"
+
+DISKOPTS="-m sys /dev/sda"
+NTPOPTS=none
+LBUOPTS=none
+APKCACHEOPTS=none
