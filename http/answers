@@ -19,6 +19,7 @@ iface eth1 inet manual
 
 auto eth2
 iface eth2 inet manual
+"
 
 DNSOPTS="1.1.1.1"
 TIMEZONEOPTS="-z UTC"
