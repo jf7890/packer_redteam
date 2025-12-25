@@ -34,11 +34,11 @@ source "proxmox-iso" "redteam_router" {
   # =========================
   boot_iso {
     type             = "scsi"
-    iso_url          = var.alpine_iso_url
-    iso_checksum     = var.alpine_iso_checksum
+    iso_url          = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-virt-3.23.2-x86_64.iso"
+    iso_checksum     = "file:https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-virt-3.23.2-x86_64.iso.sha256"
     iso_storage_pool = var.iso_storage_pool
 
-    iso_download_pve = var.iso_download_pve
+    iso_download_pve = true
     unmount          = true
   }
 

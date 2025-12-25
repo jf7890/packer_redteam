@@ -37,12 +37,3 @@ wan_bridge = "vmbr10"
 dns_server           = "1.1.1.1"
 ssh_private_key_file = "~/.ssh/id_ed25519"
 answerfile_name      = "answers"
-
-# =========================
-# Alpine ISO (public)
-# =========================
-alpine_iso_url      = "https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-virt-3.23.2-x86_64.iso"
-alpine_iso_checksum = "file:https://dl-cdn.alpinelinux.org/alpine/v3.23/releases/x86_64/alpine-virt-3.23.2-x86_64.iso.sha256"
-
-# Nếu môi trường khác: packer host không có internet nhưng PVE có internet => set true
-iso_download_pve = false

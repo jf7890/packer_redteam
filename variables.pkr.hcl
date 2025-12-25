@@ -97,19 +97,3 @@ variable "answerfile_name" {
   default     = "answers"
   description = "Filename inside http/ used as setup-alpine answerfile."
 }
-
-variable "alpine_iso_url" {
-  type        = string
-  description = "Alpine ISO URL (public source)."
-}
-
-variable "alpine_iso_checksum" {
-  type        = string
-  description = "ISO checksum string, e.g. file:https://...iso.sha256"
-}
-
-variable "iso_download_pve" {
-  type        = bool
-  default     = false
-  description = "If true, Proxmox downloads ISO itself; if false, packer downloads then uploads."
-}
