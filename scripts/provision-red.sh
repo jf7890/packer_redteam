@@ -115,6 +115,6 @@ EOF
 chown -R frr:frr /etc/frr || true
 chmod 640 /etc/frr/frr.conf || true
 rc-update add frr default || true
-rc-service frr start || true
+rc-service frr start > /dev/null 2>&1 || true
 
 echo "[+] Done."
