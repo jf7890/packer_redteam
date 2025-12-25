@@ -223,6 +223,16 @@ fi
 
 rc-service qemu-guest-agent restart > /dev/null 2>&1 || true
 
+# Chỉ dùng datasource NoCloud (cloud-init drive của Proxmox), không probe EC2
+mkdir -p /etc/cloud/cloud.cfg.d
+cat > /etc/cloud/cloud.cfg.d/99-proxmox.cfg <<'EOF'
+datasource_list: [ NoCloud, None ]
+
+datasource:
+  NoCloud:
+    fs_label: cidata
+EOF
+
 # ---- Cloud-init services ----
 echo "[+] Enable cloud-init services..."
 rc-update add cloud-init-local boot    || true
