@@ -203,6 +203,8 @@ line vty
 !
 EOF
 
+rc-update add cloud-init default || true
+
 chown -R frr:frr /etc/frr || true
 chmod 640 /etc/frr/frr.conf || true
 rc-update add networking default || true
@@ -228,6 +230,14 @@ datasource:
     fs_label: cidata
 EOF
 
+# Tắt cloud-init network module (đây là cái đang overwrite interfaces của bạn)
+cat > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<'EOF'
+network: {config: disabled}
+EOF
+
+# Clean để khi clone thì cloud-init vẫn chạy user-data, nhưng không phá network nữa
+cloud-init clean --logs > /dev/null 2>&1 || true
+
 echo "[+] Cleaning cloud-init state/logs..."
 cloud-init clean -l > /dev/null 2>&1 || true
 rm -rf /var/lib/cloud/* > /dev/null 2>&1 || true
@@ -238,22 +248,5 @@ if [ ! -f /sbin/shutdown ]; then
 fi
 
 rc-service qemu-guest-agent restart > /dev/null 2>&1 || true
-
-# Chỉ dùng datasource NoCloud (cloud-init drive của Proxmox), không probe EC2
-mkdir -p /etc/cloud/cloud.cfg.d
-cat > /etc/cloud/cloud.cfg.d/99-proxmox.cfg <<'EOF'
-datasource_list: [ NoCloud, None ]
-
-datasource:
-  NoCloud:
-    fs_label: cidata
-EOF
-
-# ---- Cloud-init services ----
-echo "[+] Enable cloud-init services..."
-rc-update add cloud-init-local boot    || true
-rc-update add cloud-init default       || true
-rc-update add cloud-config default     || true
-rc-update add cloud-final default      || true
 
 echo "[+] Done."
