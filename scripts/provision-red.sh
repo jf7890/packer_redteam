@@ -11,7 +11,8 @@ apk add --no-cache \
   curl \
   acpid \
   qemu-guest-agent \
-  cloud-init cloud-init-openrc
+  cloud-init cloud-init-openrc \
+  busybox-extras
 
 # ---- SSH hardening (không restart networking) ----
 echo "[+] Ensure sshd runtime dir exists..."
@@ -204,6 +205,7 @@ EOF
 
 chown -R frr:frr /etc/frr || true
 chmod 640 /etc/frr/frr.conf || true
+rc-update add networking default || true
 
 # Start FRR (redirect để tránh giữ session lâu)
 rc-update add frr default || true
@@ -215,6 +217,20 @@ rc-update add acpid default || true
 rc-service acpid start > /dev/null 2>&1 || true
 
 rc-update add qemu-guest-agent default || true
+
+# Chỉ dùng datasource NoCloud (cloud-init drive của Proxmox), không probe EC2
+mkdir -p /etc/cloud/cloud.cfg.d
+cat > /etc/cloud/cloud.cfg.d/99-proxmox.cfg <<'EOF'
+datasource_list: [ NoCloud, None ]
+
+datasource:
+  NoCloud:
+    fs_label: cidata
+EOF
+
+echo "[+] Cleaning cloud-init state/logs..."
+cloud-init clean -l > /dev/null 2>&1 || true
+rm -rf /var/lib/cloud/* > /dev/null 2>&1 || true
 
 # FIX Alpine: nếu thiếu /sbin/shutdown thì tạo symlink cho agent gọi
 if [ ! -f /sbin/shutdown ]; then
