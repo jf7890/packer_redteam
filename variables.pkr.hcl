@@ -98,7 +98,6 @@ variable "answerfile_name" {
   description = "Filename inside http/ used as setup-alpine answerfile."
 }
 
-# (tùy chọn, để portable hơn)
 variable "alpine_iso_url" {
   type        = string
   description = "Alpine ISO URL (public source)."
