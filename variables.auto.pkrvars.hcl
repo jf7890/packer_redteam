@@ -3,7 +3,7 @@
 # =========================
 proxmox_url      = "https://10.10.100.1:8006/api2/json"
 proxmox_username = "root@pam!packer"
-proxmox_token    = "PUT_YOUR_TOKEN_SECRET_HERE"
+proxmox_token    = "28786dd2-1eed-44e6-b8a4-dc2221ce384d"
 proxmox_node     = "homelab"
 
 proxmox_insecure_skip_tls_verify = true
