@@ -5,14 +5,14 @@ echo "[+] Cài package..."
 apk update
 apk add --no-cache \
   openssh \
-  nftables \
   frr frr-openrc \
   iproute2 \
   curl \
   acpid \
   qemu-guest-agent \
   cloud-init cloud-init-openrc \
-  busybox-extras
+  busybox-extras \
+  iptables iptables-openrc
 
 # ---- SSH hardening (do NOT restart networking) ----
 echo "[+] Ensure sshd runtime dir exists..."
@@ -58,7 +58,7 @@ ip link set eth0 up 2>/dev/null || true
 
 # ==========================================================
 # Static IP config for internal NICs (do NOT touch eth0 DHCP)
-# - eth1: transit 10.10.101.2/30 (peer on Blue is typically .1)
+# - eth1: transit 10.10.101.2/30 (peer Blue thường .1)
 # - eth2: red LAN 10.10.171.1/24
 # ==========================================================
 echo "[+] Set runtime IP for eth1/eth2 (do NOT restart networking)..."
@@ -115,75 +115,65 @@ net.ipv4.ip_forward=1
 EOF
 sysctl -p /etc/sysctl.d/99-router.conf || true
 
-# ---- nftables: NAT + basic policy ----
-echo "[+] Configure nftables (NAT red LAN -> internet via eth0)..."
-cat > /etc/nftables.conf <<'EOF'
-flush ruleset
+# ==========================================================
+# [IPTABLES] Configure iptables: default drop + forward + NAT
+# ==========================================================
+echo "[+] Configure iptables (policy drop + forward + NAT)..."
 
-# --- ĐỊNH NGHĨA BIẾN ---
-define WAN_IF  = "eth0"   # WAN (Internet) - nơi NAT
-define OSPF_IF = "eth1"   # Transit/OSPF link (không NAT riêng, chỉ cho forward theo rule)
-define LAN_IFS = { "eth2" }         # Red LAN
-define ALL_INTERNAL = { "eth1", "eth2" }
+WAN_IF="eth0"
+OSPF_IF="eth1"
+LAN_IF="eth2"
 
-table inet filter {
-    chain input {
-        type filter hook input priority 0; policy drop;
+# Flush sạch rules
+iptables -F
+iptables -t nat -F
+iptables -t mangle -F
+iptables -X
 
-        # 1) Traffic cơ bản
-        iif "lo" accept
-        ct state established,related accept
+# Default policy
+iptables -P INPUT DROP
+iptables -P FORWARD DROP
+iptables -P OUTPUT ACCEPT
 
-        # 2) Quản trị
-        tcp dport 22 accept
-        ip protocol icmp accept
+# INPUT: cơ bản
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-        # 3) OSPF bắt buộc (neighbor sẽ hình thành trên eth1)
-        ip protocol ospf accept
-        ip protocol igmp accept
+# DHCP client trên eth0 (để chắc ăn khi policy INPUT DROP)
+iptables -A INPUT -i "$WAN_IF" -p udp --sport 67 --dport 68 -j ACCEPT
 
-        # 4) Cho phép mạng nội bộ truy cập router (eth1/eth2)
-        iifname $ALL_INTERNAL accept
-    }
+# Quản trị
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+iptables -A INPUT -p icmp -j ACCEPT
 
-    chain forward {
-        type filter hook forward priority 0; policy drop;
+# OSPF (proto 89) + IGMP (proto 2) cho multicast (OSPF hello dùng multicast)
+iptables -A INPUT -p ospf -j ACCEPT
+iptables -A INPUT -p igmp -j ACCEPT
 
-        ct state established,related accept
+# Cho phép mạng nội bộ truy cập router (eth1/eth2)
+iptables -A INPUT -i "$OSPF_IF" -j ACCEPT
+iptables -A INPUT -i "$LAN_IF" -j ACCEPT
 
-        # 1) Cho phép LAN ra Internet (qua eth0)
-        iifname $LAN_IFS oifname $WAN_IF accept
+# FORWARD
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-        # 2) Cho phép Router OSPF link (eth1) ra Internet (nếu cần update/ping)
-        iifname $OSPF_IF oifname $WAN_IF accept
+# 1) LAN -> Internet
+iptables -A FORWARD -i "$LAN_IF" -o "$WAN_IF" -j ACCEPT
 
-        # 3) Routing giữa các mạng nội bộ (LAN <-> OSPF Link)
-        iifname $OSPF_IF oifname $LAN_IFS accept
-        iifname $LAN_IFS oifname $OSPF_IF accept
-    }
+# 2) Transit/OSPF link -> Internet (nếu cần update/ping từ bên kia đi qua)
+iptables -A FORWARD -i "$OSPF_IF" -o "$WAN_IF" -j ACCEPT
 
-    chain output {
-        type filter hook output priority 0; policy accept;
-    }
-}
+# 3) Routing nội bộ giữa LAN <-> Transit
+iptables -A FORWARD -i "$OSPF_IF" -o "$LAN_IF" -j ACCEPT
+iptables -A FORWARD -i "$LAN_IF" -o "$OSPF_IF" -j ACCEPT
 
-table ip nat {
-    chain prerouting {
-        type nat hook prerouting priority -100;
-    }
+# NAT: masquerade mọi thứ đi ra WAN
+iptables -t nat -A POSTROUTING -o "$WAN_IF" -j MASQUERADE
 
-    chain postrouting {
-        type nat hook postrouting priority 100;
-
-        # NAT mọi thứ đi ra WAN (eth0)
-        oifname $WAN_IF masquerade
-    }
-}
-EOF
-
-rc-update add nftables default || true
-rc-service nftables start || true
-rc-service nftables reload 2>/dev/null || true
+# Enable + start + save rules (persist)
+rc-update add iptables default || true
+rc-service iptables start > /dev/null 2>&1 || true
+rc-service iptables save  > /dev/null 2>&1 || true
 
 # ---- FRR OSPF: advertise transit + red LAN; no DMZ here ----
 echo "[+] Configure FRR (standard OSPF; do not advertise DMZ)..."
