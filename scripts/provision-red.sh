@@ -12,7 +12,8 @@ apk add --no-cache \
   qemu-guest-agent \
   cloud-init cloud-init-openrc \
   busybox-extras \
-  iptables iptables-openrc
+  iptables iptables-openrc \
+  dnsmasq
 
 # ---- SSH hardening (do NOT restart networking) ----
 echo "[+] Ensure sshd runtime dir exists..."
@@ -170,10 +171,41 @@ iptables -A FORWARD -i "$LAN_IF" -o "$OSPF_IF" -j ACCEPT
 # NAT: masquerade mọi thứ đi ra WAN
 iptables -t nat -A POSTROUTING -o "$WAN_IF" -j MASQUERADE
 
+# INPUT: Cho phép DHCP requests từ LAN
+iptables -A INPUT -i "$LAN_IF" -p udp --dport 67 --sport 68 -j ACCEPT
+
 # Enable + start + save rules (persist)
 rc-update add iptables default || true
 rc-service iptables start > /dev/null 2>&1 || true
 rc-service iptables save  > /dev/null 2>&1 || true
+
+# ==========================================================
+# [DHCP] Configure Dnsmasq for Red LAN (eth2)
+# ==========================================================
+echo "[+] Configuring DHCP Server (Dnsmasq) on eth2..."
+
+cat > /etc/dnsmasq.conf <<'EOF'
+# Chỉ lắng nghe trên cổng Red LAN
+interface=eth2
+bind-interfaces
+
+# Cấu hình dải IP cấp phát (Lease time 24h)
+dhcp-range=10.10.171.100,10.10.171.200,24h
+
+# Gateway (Chính là IP của router này)
+dhcp-option=option:router,10.10.171.1
+
+# DNS Servers
+dhcp-option=option:dns-server,1.1.1.1,8.8.8.8
+
+# Log cho việc debug (có thể tắt để giảm log hệ thống)
+log-dhcp
+EOF
+
+# Kích hoạt và chạy service
+rc-update add dnsmasq default || true
+# Chạy ở chế độ silent để không gây treo session Packer
+rc-service dnsmasq start > /dev/null 2>&1 || true
 
 # ---- FRR OSPF: advertise transit + red LAN; no DMZ here ----
 echo "[+] Configure FRR (standard OSPF; do not advertise DMZ)..."
