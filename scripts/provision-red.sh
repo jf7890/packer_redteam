@@ -120,56 +120,64 @@ echo "[+] Configure nftables (NAT red LAN -> internet via eth0)..."
 cat > /etc/nftables.conf <<'EOF'
 flush ruleset
 
+# --- ĐỊNH NGHĨA BIẾN ---
+define WAN_IF  = "eth0"   # WAN (Internet) - nơi NAT
+define OSPF_IF = "eth1"   # Transit/OSPF link (không NAT riêng, chỉ cho forward theo rule)
+define LAN_IFS = { "eth2" }         # Red LAN
+define ALL_INTERNAL = { "eth1", "eth2" }
+
 table inet filter {
-  chain input {
-    type filter hook input priority 0; policy drop;
+    chain input {
+        type filter hook input priority 0; policy drop;
 
-    iif "lo" accept
-    ct state established,related accept
+        # 1) Traffic cơ bản
+        iif "lo" accept
+        ct state established,related accept
 
-    # SSH
-    tcp dport 22 accept
+        # 2) Quản trị
+        tcp dport 22 accept
+        ip protocol icmp accept
 
-    # ICMP
-    ip protocol icmp accept
+        # 3) OSPF bắt buộc (neighbor sẽ hình thành trên eth1)
+        ip protocol ospf accept
+        ip protocol igmp accept
 
-    # OSPF (IP proto 89) is CONTROL-PLANE traffic: must be accepted in INPUT.
-    ip protocol ospf accept
+        # 4) Cho phép mạng nội bộ truy cập router (eth1/eth2)
+        iifname $ALL_INTERNAL accept
+    }
 
-    # Allow traffic coming to the router itself from internal NICs
-    iifname { "eth1", "eth2" } accept
-  }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
 
-  chain forward {
-    type filter hook forward priority 0; policy drop;
+        ct state established,related accept
 
-    ct state established,related accept
+        # 1) Cho phép LAN ra Internet (qua eth0)
+        iifname $LAN_IFS oifname $WAN_IF accept
 
-    # Red LAN -> WAN
-    iifname "eth2" oifname "eth0" accept
+        # 2) Cho phép Router OSPF link (eth1) ra Internet (nếu cần update/ping)
+        iifname $OSPF_IF oifname $WAN_IF accept
 
-    # Transit forwarding between internal networks via eth1
-    # Allow only explicit internal paths; do NOT blanket-accept all eth1 traffic.
-    iifname "eth2" oifname "eth1" accept
-    iifname "eth1" oifname "eth2" accept
-  }
+        # 3) Routing giữa các mạng nội bộ (LAN <-> OSPF Link)
+        iifname $OSPF_IF oifname $LAN_IFS accept
+        iifname $LAN_IFS oifname $OSPF_IF accept
+    }
 
-  chain output {
-    type filter hook output priority 0; policy accept;
-  }
+    chain output {
+        type filter hook output priority 0; policy accept;
+    }
 }
 
 table ip nat {
-  chain prerouting {
-    type nat hook prerouting priority -100;
-  }
+    chain prerouting {
+        type nat hook prerouting priority -100;
+    }
 
-  chain postrouting {
-    type nat hook postrouting priority 100;
+    chain postrouting {
+        type nat hook postrouting priority 100;
 
-    # Masquerade red LAN to WAN
-    oif "eth0" ip saddr { 10.10.171.0/24 } masquerade
-  }
+        # NAT mọi thứ đi ra WAN (eth0)
+        oifname $WAN_IF masquerade
+    }
 }
 EOF
 
