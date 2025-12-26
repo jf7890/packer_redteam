@@ -14,11 +14,11 @@ apk add --no-cache \
   cloud-init cloud-init-openrc \
   busybox-extras
 
-# ---- SSH hardening (không restart networking) ----
+# ---- SSH hardening (do NOT restart networking) ----
 echo "[+] Ensure sshd runtime dir exists..."
 mkdir -p /var/run/sshd
 
-echo "[+] Hardening SSH: chỉ cho key, tắt password..."
+echo "[+] Hardening SSH: key-only, disable password..."
 SSHD_CFG="/etc/ssh/sshd_config"
 if [ -f "$SSHD_CFG" ]; then
   sed -i \
@@ -41,7 +41,7 @@ rc-service sshd start || true
 rc-service sshd reload 2>/dev/null || true
 
 # ---- Fix NIC default DOWN: local.d ----
-echo "[+] Fix Alpine NIC DOWN: auto ip link up lúc boot..."
+echo "[+] Fix Alpine NIC DOWN: auto ip link up at boot..."
 mkdir -p /etc/local.d
 cat > /etc/local.d/ifup.start <<'EOF'
 #!/bin/sh
@@ -52,22 +52,22 @@ EOF
 chmod +x /etc/local.d/ifup.start
 rc-update add local default || true
 
-# Enable networking để boot sau tự lên (không restart ngay lúc Packer đang SSH)
+# Enable networking so next boot it comes up (do NOT restart during Packer SSH)
 rc-update add networking default || true
 ip link set eth0 up 2>/dev/null || true
 
 # ==========================================================
-# Cấu hình IP static cho NIC nội bộ (không đụng eth0 DHCP)
-# - eth1: transit 10.10.101.2/30 (đầu kia Blue thường là .1)
+# Static IP config for internal NICs (do NOT touch eth0 DHCP)
+# - eth1: transit 10.10.101.2/30 (peer on Blue is typically .1)
 # - eth2: red LAN 10.10.171.1/24
 # ==========================================================
-echo "[+] Set IP runtime cho eth1/eth2 (không restart networking)..."
+echo "[+] Set runtime IP for eth1/eth2 (do NOT restart networking)..."
 ip link set eth1 up 2>/dev/null || true
 ip link set eth2 up 2>/dev/null || true
 ip addr replace 10.10.101.2/30 dev eth1 2>/dev/null || true
 ip addr replace 10.10.171.1/24 dev eth2 2>/dev/null || true
 
-# Persist vào /etc/network/interfaces (chỉ rewrite eth1/eth2)
+# Persist into /etc/network/interfaces (rewrite eth1/eth2 only)
 IF_FILE="/etc/network/interfaces"
 if [ -f "$IF_FILE" ]; then
   awk '
@@ -116,7 +116,7 @@ EOF
 sysctl -p /etc/sysctl.d/99-router.conf || true
 
 # ---- nftables: NAT + basic policy ----
-echo "[+] Configure nftables (NAT cho red LAN ra internet qua eth0)..."
+echo "[+] Configure nftables (NAT red LAN -> internet via eth0)..."
 cat > /etc/nftables.conf <<'EOF'
 flush ruleset
 
@@ -133,10 +133,10 @@ table inet filter {
     # ICMP
     ip protocol icmp accept
 
-    # OSPF (proto 89)
+    # OSPF (IP proto 89) is CONTROL-PLANE traffic: must be accepted in INPUT.
     ip protocol ospf accept
 
-    # Cho phép traffic từ NIC nội bộ vào router (tuỳ bạn siết thêm sau)
+    # Allow traffic coming to the router itself from internal NICs
     iifname { "eth1", "eth2" } accept
   }
 
@@ -148,8 +148,10 @@ table inet filter {
     # Red LAN -> WAN
     iifname "eth2" oifname "eth0" accept
 
-    # Transit forward (tuỳ topology bạn siết sau)
-    iifname "eth1" accept
+    # Transit forwarding between internal networks via eth1
+    # Allow only explicit internal paths; do NOT blanket-accept all eth1 traffic.
+    iifname "eth2" oifname "eth1" accept
+    iifname "eth1" oifname "eth2" accept
   }
 
   chain output {
@@ -165,7 +167,7 @@ table ip nat {
   chain postrouting {
     type nat hook postrouting priority 100;
 
-    # Masquerade red LAN ra WAN
+    # Masquerade red LAN to WAN
     oif "eth0" ip saddr { 10.10.171.0/24 } masquerade
   }
 }
@@ -175,8 +177,8 @@ rc-update add nftables default || true
 rc-service nftables start || true
 rc-service nftables reload 2>/dev/null || true
 
-# ---- FRR OSPF: chỉ quảng bá transit + red LAN, không có DMZ ----
-echo "[+] Configure FRR (OSPF chuẩn, không quảng bá DMZ)..."
+# ---- FRR OSPF: advertise transit + red LAN; no DMZ here ----
+echo "[+] Configure FRR (standard OSPF; do not advertise DMZ)..."
 if [ -f /etc/frr/daemons ]; then
   sed -i \
     -e 's/^zebra=.*/zebra=yes/' \
@@ -209,18 +211,18 @@ chown -R frr:frr /etc/frr || true
 chmod 640 /etc/frr/frr.conf || true
 rc-update add networking default || true
 
-# Start FRR (redirect để tránh giữ session lâu)
+# Start FRR (redirect output to avoid holding the session)
 rc-update add frr default || true
 rc-service frr start > /dev/null 2>&1 || true
 
-# ---- ACPI + QEMU guest agent: shutdown graceful ----
+# ---- ACPI + QEMU guest agent: graceful shutdown ----
 echo "[+] Enable ACPI + QEMU guest agent..."
 rc-update add acpid default || true
 rc-service acpid start > /dev/null 2>&1 || true
 
 rc-update add qemu-guest-agent default || true
 
-# Chỉ dùng datasource NoCloud (cloud-init drive của Proxmox), không probe EC2
+# Use NoCloud datasource only (Proxmox cloud-init drive), do not probe EC2
 mkdir -p /etc/cloud/cloud.cfg.d
 cat > /etc/cloud/cloud.cfg.d/99-proxmox.cfg <<'EOF'
 datasource_list: [ NoCloud, None ]
@@ -230,19 +232,19 @@ datasource:
     fs_label: cidata
 EOF
 
-# Tắt cloud-init network module (đây là cái đang overwrite interfaces của bạn)
+# Disable cloud-init network module (it overwrites your interfaces)
 cat > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<'EOF'
 network: {config: disabled}
 EOF
 
-# Clean để khi clone thì cloud-init vẫn chạy user-data, nhưng không phá network nữa
+# Clean so clones still run user-data, but do not break network
 cloud-init clean --logs > /dev/null 2>&1 || true
 
 echo "[+] Cleaning cloud-init state/logs..."
 cloud-init clean -l > /dev/null 2>&1 || true
 rm -rf /var/lib/cloud/* > /dev/null 2>&1 || true
 
-# FIX Alpine: nếu thiếu /sbin/shutdown thì tạo symlink cho agent gọi
+# FIX Alpine: if /sbin/shutdown is missing, create symlink for agent usage
 if [ ! -f /sbin/shutdown ]; then
   ln -s /sbin/poweroff /sbin/shutdown
 fi
