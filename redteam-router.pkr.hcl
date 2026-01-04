@@ -81,12 +81,12 @@ source "proxmox-iso" "redteam_router" {
 
   network_adapters {
     model  = "virtio"
-    bridge = "transit"
+    bridge = var.wan_bridge
   }
 
   network_adapters {
     model  = "virtio"
-    bridge = "red"
+    bridge = var.wan_bridge
   }
 
   # =========================
