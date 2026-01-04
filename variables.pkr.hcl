@@ -90,11 +90,13 @@ variable "dns_server" {
 variable "pri_key" {
   type        = string
   description = "Private key path that matches ROOTSSHKEY in http/answers (e.g. ~/.ssh/id_ed25519)."
+  default     = env("PACKER_SSH_PRIVATE_KEY")
 }
 
 variable "pub_key" {
   type        = string
   description = "SSH public key string written into Alpine answerfile ROOTSSHKEY"
+  default     = env("PACKER_SSH_PUBLIC_KEY")
 }
 
 variable "answerfile_name" {
