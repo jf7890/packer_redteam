@@ -66,12 +66,6 @@ variable "hostname" {
   description = "Hostname (also used in template name)"
 }
 
-variable "wan_bridge" {
-  type        = string
-  description = "Proxmox bridge for WAN (net0). This is the only bridge we keep as variable."
-  default = env("PACKER_INTERNET_BRIDGE_CARD")
-}
-
 variable "iso_storage_pool" {
   type        = string
   description = "Proxmox storage pool to store the boot ISO (e.g. hdd-data, local, ...)."
@@ -86,6 +80,12 @@ variable "dns_server" {
   type        = string
   default     = "1.1.1.1"
   description = "DNS used in live ISO to fetch answerfile."
+}
+
+variable "wan_bridge" {
+  type        = string
+  description = "Proxmox bridge for WAN (net0). This is the only bridge we keep as variable."
+  default = env("PACKER_INTERNET_BRIDGE_CARD")
 }
 
 variable "pri_key" {

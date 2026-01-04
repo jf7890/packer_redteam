@@ -81,12 +81,12 @@ source "proxmox-iso" "redteam_router" {
 
   network_adapters {
     model  = "virtio"
-    bridge = "transit" # [Suy luận] sửa nếu bridge transit của bạn khác tên
+    bridge = "transit"
   }
 
   network_adapters {
     model  = "virtio"
-    bridge = "red" # [Suy luận] sửa nếu bridge red của bạn khác tên
+    bridge = "red"
   }
 
   # =========================
