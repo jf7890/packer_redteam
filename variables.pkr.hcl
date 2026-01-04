@@ -69,6 +69,7 @@ variable "hostname" {
 variable "wan_bridge" {
   type        = string
   description = "Proxmox bridge for WAN (net0). This is the only bridge we keep as variable."
+  default = env("PACKER_INTERNET_BRIDGE_CARD")
 }
 
 variable "iso_storage_pool" {

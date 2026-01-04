@@ -27,11 +27,6 @@ iso_storage_pool        = "hdd-data"
 cloud_init_storage_pool = "local-lvm"
 
 # =========================
-# WAN bridge (ONLY variable bridge)
-# =========================
-wan_bridge = "vmbr10"
-
-# =========================
 # Live ISO DNS + SSH key
 # =========================
 dns_server           = "1.1.1.1"
