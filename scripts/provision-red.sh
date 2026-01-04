@@ -262,6 +262,26 @@ datasource:
     fs_label: cidata
 EOF
 
+echo "[+] Template cleanup (Alpine)..."
+
+# Remove baked-in root key
+rm -f /root/.ssh/authorized_keys 2>/dev/null || true
+
+# Lock passwords (để không login bằng pass)
+passwd -l root 2>/dev/null || true
+
+# Remove SSH host keys so clones regenerate
+rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
+
+# Reset machine-id (tuỳ Alpine version)
+rm -f /etc/machine-id 2>/dev/null || true
+
+# Clean logs
+find /var/log -type f -exec sh -c ': > "$1"' _ {} \; 2>/dev/null || true
+
+sync || true
+
+
 # Disable cloud-init network module (it overwrites your interfaces)
 cat > /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg <<'EOF'
 network: {config: disabled}
