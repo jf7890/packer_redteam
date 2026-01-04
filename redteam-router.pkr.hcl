@@ -132,7 +132,7 @@ source "proxmox-iso" "redteam_router" {
   ssh_port     = 22
   ssh_timeout  = "25m"
 
-  ssh_private_key_file = pathexpand(var.ssh_pri_key)
+  ssh_private_key_file = pathexpand(var.pri_key)
 
   cloud_init              = true
   cloud_init_storage_pool = var.cloud_init_storage_pool
