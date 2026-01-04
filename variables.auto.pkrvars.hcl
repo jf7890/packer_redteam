@@ -35,6 +35,4 @@ wan_bridge = "vmbr10"
 # Live ISO DNS + SSH key
 # =========================
 dns_server           = "1.1.1.1"
-pri_key= "~/.ssh/id_ed25519"
-pub_key = "preset"
 answerfile_name      = "answers"
