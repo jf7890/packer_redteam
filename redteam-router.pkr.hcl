@@ -92,7 +92,13 @@ source "proxmox-iso" "redteam_router" {
   # =========================
   # Packer HTTP server
   # =========================
-  http_directory = "http"
+  http_content = {
+    "/answers" = templatefile("${path.root}/http/answers.tpl", {
+      pub_key    = var.pub_key
+      dns_server = var.dns_server
+      hostname   = var.hostname
+    })
+  }
 
   # =========================
   # Boot & unattended install
@@ -126,11 +132,8 @@ source "proxmox-iso" "redteam_router" {
   ssh_port     = 22
   ssh_timeout  = "25m"
 
-  ssh_private_key_file = pathexpand(var.ssh_private_key_file)
+  ssh_private_key_file = pathexpand(var.ssh_pri_key)
 
-  # =========================
-  # Cloud-Init drive for template
-  # =========================
   cloud_init              = true
   cloud_init_storage_pool = var.cloud_init_storage_pool
 }

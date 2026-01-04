@@ -87,9 +87,14 @@ variable "dns_server" {
   description = "DNS used in live ISO to fetch answerfile."
 }
 
-variable "ssh_private_key_file" {
+variable "pri_key" {
   type        = string
   description = "Private key path that matches ROOTSSHKEY in http/answers (e.g. ~/.ssh/id_ed25519)."
+}
+
+variable "pub_key" {
+  type        = string
+  description = "SSH public key string written into Alpine answerfile ROOTSSHKEY"
 }
 
 variable "answerfile_name" {
